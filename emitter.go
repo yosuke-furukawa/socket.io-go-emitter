@@ -4,6 +4,7 @@ import (
     "gopkg.in/redis.v1"
     "github.com/vmihailenco/msgpack"
     "strconv"
+    _ "fmt"
 )
 
 const (
@@ -104,6 +105,7 @@ func (emitter *Emitter) Emit(data ...string) *Emitter {
   pack = append(pack, emitter.rooms)
   pack = append(pack, emitter.flags)
   message, _ := msgpack.Marshal(pack)
+  fmt.Printf("redis: %s", message)
   emitter.Redis.Publish(emitter.Key, string(message))
   emitter.rooms = make([]string, 5, 5)
   emitter.flags = make(map[string]interface{})
