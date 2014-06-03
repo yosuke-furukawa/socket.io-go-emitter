@@ -2,12 +2,13 @@ package SocketIO
 
 import (
   "testing"
-  "fmt"
-  "gopkg.in/redis.v1"
+  "strings"
+  _ "fmt"
+  "github.com/garyburd/redigo/redis"
 )
 
 func TestPublish(t *testing.T) {
-  emitter := NewEmitter(&EmitterOpts{
+  emitter, _ := NewEmitter(&EmitterOpts{
     Host:"localhost", 
     Port:6379,
   })
@@ -15,17 +16,21 @@ func TestPublish(t *testing.T) {
   if emitter == nil {
     t.Error("emitter is nil")
   }
-  client := redis.NewTCPClient(&redis.Options{ Addr: "localhost:6379"})
-
-  defer client.Close()
-  pubsub := client.PubSub()
-  defer pubsub.Close()
-  err := pubsub.Subscribe("socket.io#emitter")
-  _ = err
-  msg, err := pubsub.Receive()
-  fmt.Println(msg, err)
-
-  emitter.Emit("broadcast event", "hogefuga")
-  msg, err = pubsub.Receive()
-  fmt.Println(msg, err)
+  c, _ := redis.Dial("tcp", "localhost:6379")
+  defer c.Close()
+  psc := redis.PubSubConn{Conn: c}
+  psc.Subscribe("socket.io#emitter")
+  emitter.Emit("time", "hogefuga")
+for {
+    switch v := psc.Receive().(type) {
+    case redis.Message:
+        isContain := strings.Contains(string(v.Data), "hogefuga")
+        if !isContain {
+          t.Errorf("%s not contains hogefuga", v.Data)
+          return
+        } else {
+          return
+        }
+    }
+}
 }

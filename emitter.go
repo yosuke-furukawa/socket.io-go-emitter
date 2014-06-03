@@ -1,9 +1,10 @@
 package SocketIO
 
 import (
-    "gopkg.in/redis.v1"
+    "github.com/garyburd/redigo/redis"
     "github.com/vmihailenco/msgpack"
     "strconv"
+    "bytes"
     _ "fmt"
 )
 
@@ -13,47 +14,49 @@ const (
 )
 
 type EmitterOpts struct {
+  // Host means hostname like localhost
   Host string
+  // Port means port number, like 6379
   Port int
+  // Key means redis subscribe key
   Key string
-  Socket string
-  Password string
-  DB int64
+  // Protocol, like tcp
+  Protocol string
+  // Address, like localhost:6379
+  Addr string
 }
 
 type Emitter struct {
-  Redis *redis.Client
+  Redis redis.Conn
   Key string
   rooms []string
   flags map[string]interface{}
 }
 
-func (emitter *Emitter) initializeFlags() {
-  emitter.flags = map[string]interface{}{
-    "json" : true,
-    "volatile" : true,
-    "broadcast" : true,
-  }
-}
-
-func NewEmitter(opts *EmitterOpts) *Emitter {
-  var client *redis.Client
-  if opts.DB == 0 {
-    opts.DB = int64(-1)
-  }
-  if opts.Socket != "" {
-    client = redis.NewUnixClient(&redis.Options{
-    Addr: opts.Socket, 
-    Password: opts.Password, 
-    DB : opts.DB,
-    })
+// Emitter constructor
+// Usage:
+// SocketIO.NewEmitter(&SocketIO.EmitterOpts{
+//    Host:"localhost", 
+//    Port:6379,
+// })
+func NewEmitter(opts *EmitterOpts) (*Emitter, error) {
+  var addr string
+  if opts.Addr != "" {
+    addr = opts.Addr
+  } else if opts.Host != "" && opts.Port > 0 {
+  addr = opts.Host + ":" + strconv.Itoa(opts.Port)
   } else {
-    addr := opts.Host + ":" + strconv.Itoa(opts.Port)
-    client = redis.NewTCPClient(&redis.Options{
-    Addr: addr, 
-    Password: opts.Password, 
-    DB: opts.DB,
-    })
+    addr = "localhost:6379"
+  }
+  var protocol string
+  if opts.Protocol == "" {
+    protocol = "tcp"
+  } else {
+    protocol = opts.Protocol
+  }
+  conn, err := redis.Dial(protocol, addr)
+  if err != nil {
+    return nil, err;
   }
   
   var key string
@@ -64,13 +67,32 @@ func NewEmitter(opts *EmitterOpts) *Emitter {
   }
 
   emitter := &Emitter{
-    Redis:client, 
+    Redis:conn, 
     Key: key, 
   }
-  emitter.initializeFlags()
-  return emitter
+  return emitter, nil;
 }
 
+func (emitter *Emitter) Join() *Emitter {
+  emitter.flags["join"] = true;
+  return emitter;
+}
+
+func (emitter *Emitter) Volatile() *Emitter {
+  emitter.flags["volatile"] = true;
+  return emitter;
+}
+
+func (emitter *Emitter) Broadcast() *Emitter {
+  emitter.flags["broadcast"] = true;
+  return emitter;
+}
+
+/**
+ * Limit emission to a certain `room`.
+ *
+ * @param {String} room
+ */
 func (emitter *Emitter) In(room string) *Emitter {
   for _, r := range emitter.rooms {
     if r == room {
@@ -85,31 +107,49 @@ func (emitter *Emitter) To(room string) *Emitter {
   return emitter.In(room)
 }
 
+
+/**
+ * Limit emission to certain `namespace`.
+ *
+ * @param {String} namespace
+ */
 func (emitter *Emitter) Of(namespace string) *Emitter {
   emitter.flags["nsp"] = namespace
   return emitter
 }
 
-func (emitter *Emitter) Emit(data ...string) *Emitter {
+// send the packet
+// Usage:
+// Emit("event name", "data")
+func (emitter *Emitter) Emit(event string, data ...interface{}) (*Emitter, error) {
+  d := []interface{}{event}
+  d = append(d, data...)
   packet := map[string]interface{}{
     "type" : EVENT,
-    "data" : data,
+    "data" : d,
   }
   if (emitter.flags["nsp"] != nil) {
     packet["nsp"] = emitter.flags["nsp"]
+    delete(emitter.flags, "nsp")
   } else {
     packet["nsp"] = "/"
   }
-  var pack []interface{} = make([]interface{}, 3)
+  var pack []interface{} = make([]interface{}, 0)
   pack = append(pack, packet)
-  pack = append(pack, emitter.rooms)
-  pack = append(pack, emitter.flags)
-  message, _ := msgpack.Marshal(pack)
-  fmt.Printf("redis: %s", message)
-  emitter.Redis.Publish(emitter.Key, string(message))
-  emitter.rooms = make([]string, 5, 5)
+  pack = append(pack, map[string]interface{}{
+    "rooms" : emitter.rooms,
+    "flags" : emitter.flags,
+  })
+  buf := &bytes.Buffer{}
+	enc := msgpack.NewEncoder(buf)
+  error := enc.Encode(pack)
+  if error != nil {
+    return nil, error
+  }
+  emitter.Redis.Do("PUBLISH", emitter.Key, buf)
+  emitter.rooms = make([]string, 0, 0)
   emitter.flags = make(map[string]interface{})
-  return emitter
+  return emitter, nil
 }
 
 func (emitter *Emitter) Close() {
@@ -117,24 +157,3 @@ func (emitter *Emitter) Close() {
     defer emitter.Redis.Close();
   }
 }
-
-//  func (emitter *Emitter) EmitBinary(buf []byte) *Emitter {
-//    packet := map[string]interface{}{
-//      "type" : BINARY_EVENT,
-//      "data" : buf,
-//    } 
-//    if (emitter.flags["nsp"] != nil) {
-//      packet["nsp"] = emitter.flags["nsp"]
-//    } else {
-//      packet["nsp"] = "/"
-//    }
-//    var pack []interface{} = make([]interface{}, 3)
-//    pack = append(pack, packet)
-//    pack = append(pack, emitter.rooms)
-//    pack = append(pack, emitter.flags)
-//    message, _ := msgpack.Marshal(pack)
-//    emitter.Redis.Publish(emitter.Key, string(message))
-//    emitter.rooms = make([]string)
-//    emitter.flags = make(map[string]interface{})
-//    return emitter
-//  }
