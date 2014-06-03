@@ -28,7 +28,7 @@ Example:
   emitter.Emit("message", "I love you!!")
 ```
 
-** Broadcasting and other flags
+### Broadcasting and other flags
 
 Possible flags
 
