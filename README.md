@@ -44,4 +44,14 @@ Possible flags
   emitter.Volatile().Emit("message", "I love you!!")
 ```
 
+** Binary Support
+
+```go
+  emitter := SocketIO.NewEmitter(&SocketIO.EmitterOpts{
+    Host:"localhost", 
+    Port:6379,
+  })
+  val := bytes.NewBufferString("I love you!!")
+  emitter.EmitBinary("message", val)
+```
 
