@@ -1,6 +1,8 @@
 socket.io-go-emitter
 =====================
 
+[![Build Status](https://travis-ci.org/yosuke-furukawa/socket.io-go-emitter.svg?branch=master)](https://travis-ci.org/yosuke-furukawa/socket.io-go-emitter)
+
 A Golang implementation of [socket.io-emitter](https://github.com/Automattic/socket.io-emitter)
 
 This project uses redis.
