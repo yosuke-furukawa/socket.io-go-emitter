@@ -120,10 +120,15 @@ func (emitter *Emitter) Of(namespace string) *Emitter {
 // Usage:
 // Emit("event name", "data")
 func (emitter *Emitter) Emit(event string, data ...interface{}) (*Emitter, error) {
+  defer emitter.Redis.Close()
 	d := []interface{}{event}
 	d = append(d, data...)
+	eventType := EVENT
+	if HasBinary(data...) {
+		eventType = BINARY_EVENT
+	}
 	packet := map[string]interface{}{
-		"type": EVENT,
+		"type": eventType,
 		"data": d,
 	}
 	return emitter.emit(packet)
@@ -133,6 +138,7 @@ func (emitter *Emitter) Emit(event string, data ...interface{}) (*Emitter, error
 // Usage:
 // EmitBinary("event name", []byte{0x01, 0x02, 0x03})
 func (emitter *Emitter) EmitBinary(event string, data ...interface{}) (*Emitter, error) {
+  defer emitter.Redis.Close()
 	d := []interface{}{event}
 	d = append(d, data...)
 	packet := map[string]interface{}{
@@ -142,12 +148,41 @@ func (emitter *Emitter) EmitBinary(event string, data ...interface{}) (*Emitter,
 	return emitter.emit(packet)
 }
 
+func HasBinary(dataSlice ...interface{}) bool {
+	if dataSlice == nil {
+		return false
+	}
+	for _, data := range dataSlice {
+		switch dataType := data.(type) {
+		case []byte:
+			return true
+		case bytes.Buffer:
+			return true
+		case []interface{}:
+			for _, d := range dataType {
+				result := HasBinary(d)
+				if result {
+					return true
+				}
+			}
+		case map[string]interface{}:
+			for _, v := range dataType {
+				result := HasBinary(v)
+				if result {
+					return true
+				}
+			}
+		default:
+			return false
+		}
+	}
+	return false
+}
+
 func (emitter *Emitter) emit(packet map[string]interface{}) (*Emitter, error) {
 	if emitter.flags["nsp"] != nil {
 		packet["nsp"] = emitter.flags["nsp"]
 		delete(emitter.flags, "nsp")
-	} else {
-		packet["nsp"] = "/"
 	}
 	var pack []interface{} = make([]interface{}, 0)
 	pack = append(pack, packet)
@@ -161,14 +196,8 @@ func (emitter *Emitter) emit(packet map[string]interface{}) (*Emitter, error) {
 	if error != nil {
 		return nil, error
 	}
-	// binary hack for socket.io-parser
-	if packet["type"] == BINARY_EVENT {
-		expectedBytes := []byte{byte(0xd8), byte(0x00), byte(0x09)}
-		replaceBytes := []byte{byte(0xa9)}
-		buf = bytes.NewBuffer(bytes.Replace(buf.Bytes(), replaceBytes, expectedBytes, 1))
-	}
 	emitter.Redis.Do("PUBLISH", emitter.Key, buf)
-	emitter.rooms = make([]string, 0, 0)
+	emitter.rooms = []string{}
 	emitter.flags = make(map[string]interface{})
 	return emitter, nil
 }

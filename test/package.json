@@ -1,0 +1,16 @@
+{
+  "name": "socket.io-go-emitter_test",
+  "version": "0.0.0",
+  "description": "test server for go-emitter",
+  "main": "index.js",
+  "scripts": {
+    "test": "node index.js & cd .. && go test"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "socket.io": "^1.0.6",
+    "socket.io-client": "git://github.com/Automattic/socket.io-client#05c9632",
+    "socket.io-redis": "^0.1.3"
+  }
+}
