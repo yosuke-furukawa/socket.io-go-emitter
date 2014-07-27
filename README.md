@@ -23,8 +23,8 @@ Usage
 Example:
 
 ```go
-  emitter := SocketIO.NewEmitter(&SocketIO.EmitterOpts{
-    Host:"localhost", 
+  emitter, _ := SocketIO.NewEmitter(&SocketIO.EmitterOpts{
+    Host:"localhost",
     Port:6379,
   })
   emitter.Emit("message", "I love you!!")
@@ -39,8 +39,8 @@ Possible flags
 - broadcast
 
 ```go
-  emitter := SocketIO.NewEmitter(&SocketIO.EmitterOpts{
-    Host:"localhost", 
+  emitter, _ := SocketIO.NewEmitter(&SocketIO.EmitterOpts{
+    Host:"localhost",
     Port:6379,
   })
   emitter.Volatile().Emit("message", "I love you!!")
@@ -49,8 +49,8 @@ Possible flags
 ** Binary Support
 
 ```go
-  emitter := SocketIO.NewEmitter(&SocketIO.EmitterOpts{
-    Host:"localhost", 
+  emitter, _ := SocketIO.NewEmitter(&SocketIO.EmitterOpts{
+    Host:"localhost",
     Port:6379,
   })
   val := bytes.NewBufferString("I love you!!")
