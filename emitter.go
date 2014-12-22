@@ -120,7 +120,6 @@ func (emitter *Emitter) Of(namespace string) *Emitter {
 // Usage:
 // Emit("event name", "data")
 func (emitter *Emitter) Emit(event string, data ...interface{}) (*Emitter, error) {
-  defer emitter.Redis.Close()
 	d := []interface{}{event}
 	d = append(d, data...)
 	eventType := EVENT
@@ -138,7 +137,6 @@ func (emitter *Emitter) Emit(event string, data ...interface{}) (*Emitter, error
 // Usage:
 // EmitBinary("event name", []byte{0x01, 0x02, 0x03})
 func (emitter *Emitter) EmitBinary(event string, data ...interface{}) (*Emitter, error) {
-  defer emitter.Redis.Close()
 	d := []interface{}{event}
 	d = append(d, data...)
 	packet := map[string]interface{}{

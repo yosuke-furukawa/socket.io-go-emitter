@@ -81,6 +81,40 @@ func TestPublish(t *testing.T) {
 	}
 }
 
+func TestPublishMultipleTimes(t *testing.T) {
+	time.Sleep(1 * time.Second)
+	emitter, _ := NewEmitter(&EmitterOpts{
+		Host: "localhost",
+		Port: 6379,
+	})
+
+	if emitter == nil {
+		t.Error("emitter is nil")
+	}
+	defer emitter.Close()
+	c, _ := redis.Dial("tcp", "localhost:6379")
+	defer c.Close()
+
+	psc := redis.PubSubConn{Conn: c}
+	psc.Subscribe("socket.io#emitter")
+	emitter.Emit("text", "hogefuga")
+	emitter.Emit("text", "foobar")
+	for {
+		switch v := psc.Receive().(type) {
+		case redis.Message:
+			isContain := strings.Contains(string(v.Data), "foobar")
+			isFirst := strings.Contains(string(v.Data), "hogefuga")
+			if !isContain {
+				if !isFirst {
+					t.Errorf("%s not contains foobar", v.Data)
+				}
+			} else {
+				return
+			}
+		}
+	}
+}
+
 func TestPublishJson(t *testing.T) {
   time.Sleep(1 * time.Second)
 	emitter, _ := NewEmitter(&EmitterOpts{
@@ -91,6 +125,7 @@ func TestPublishJson(t *testing.T) {
 	if emitter == nil {
 		t.Error("emitter is nil")
 	}
+	defer emitter.Close()
 	c, _ := redis.Dial("tcp", "localhost:6379")
 	defer c.Close()
 	psc := redis.PubSubConn{Conn: c}
@@ -120,6 +155,7 @@ func TestPublishBinary(t *testing.T) {
 	if emitter == nil {
 		t.Error("emitter is nil")
 	}
+	defer emitter.Close()
 	c, _ := redis.Dial("tcp", "localhost:6379")
 	defer c.Close()
 	psc := redis.PubSubConn{Conn: c}
@@ -141,16 +177,17 @@ func TestPublishBinary(t *testing.T) {
 }
 
 func TestPublishEnd(t *testing.T) {
-  time.Sleep(1 * time.Second)
+	time.Sleep(1 * time.Second)
 	emitter, _ := NewEmitter(&EmitterOpts{
 		Host: "localhost",
 		Port: 6379,
 	})
+	defer emitter.Close()
 	c, _ := redis.Dial("tcp", "localhost:6379")
 	defer c.Close()
 	psc := redis.PubSubConn{Conn: c}
 	psc.Subscribe("socket.io#emitter")
-	emitter.Emit("finish") 
+	emitter.Emit("finish")
 	for {
 		switch v := psc.Receive().(type) {
 		case redis.Message:
