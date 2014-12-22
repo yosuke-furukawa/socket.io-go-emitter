@@ -1,55 +1,55 @@
 package SocketIO
 
 import (
-  "time"
 	"bytes"
 	"github.com/garyburd/redigo/redis"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestHasBinary(t *testing.T) {
-  hasBin := HasBinary("string")
-  if hasBin != false {
+	hasBin := HasBinary("string")
+	if hasBin != false {
 		t.Error("string is not binary")
-  }
-  hasBin = HasBinary(123)
-  if hasBin != false {
+	}
+	hasBin = HasBinary(123)
+	if hasBin != false {
 		t.Error("integer is not binary")
-  }
-  hasBin = HasBinary([]byte("abc"))
-  if hasBin != true {
+	}
+	hasBin = HasBinary([]byte("abc"))
+	if hasBin != true {
 		t.Error("[]byte is binary")
-  }
-  var data []interface{}
-  data = append(data, 1)
-  data = append(data, "2")
-  data = append(data, 3)
-  hasBin = HasBinary(data)
-  if hasBin != false {
+	}
+	var data []interface{}
+	data = append(data, 1)
+	data = append(data, "2")
+	data = append(data, 3)
+	hasBin = HasBinary(data)
+	if hasBin != false {
 		t.Error("string array is not binary")
-  }
-  data = append(data, []byte("aaa"))
-  hasBin = HasBinary(data)
-  if hasBin != true {
+	}
+	data = append(data, []byte("aaa"))
+	hasBin = HasBinary(data)
+	if hasBin != true {
 		t.Error("data has binary")
-  }
-  dataMap := make(map[string]interface{})
-  dataMap["hoge"] = "bbb"
-  hasBin = HasBinary(dataMap)
-  if hasBin != false {
+	}
+	dataMap := make(map[string]interface{})
+	dataMap["hoge"] = "bbb"
+	hasBin = HasBinary(dataMap)
+	if hasBin != false {
 		t.Error("data doesnot have binary")
-  }
-  dataMap["fuga"] = []byte("bbb")
-  hasBin = HasBinary(dataMap)
-  if hasBin != true {
+	}
+	dataMap["fuga"] = []byte("bbb")
+	hasBin = HasBinary(dataMap)
+	if hasBin != true {
 		t.Error("data has binary")
-  }
-  dataMap["fuga"] = data
-  hasBin = HasBinary(dataMap)
-  if hasBin != true {
+	}
+	dataMap["fuga"] = data
+	hasBin = HasBinary(dataMap)
+	if hasBin != true {
 		t.Error("data has binary")
-  }
+	}
 
 }
 
@@ -116,7 +116,7 @@ func TestPublishMultipleTimes(t *testing.T) {
 }
 
 func TestPublishJson(t *testing.T) {
-  time.Sleep(1 * time.Second)
+	time.Sleep(1 * time.Second)
 	emitter, _ := NewEmitter(&EmitterOpts{
 		Host: "localhost",
 		Port: 6379,
@@ -146,7 +146,7 @@ func TestPublishJson(t *testing.T) {
 }
 
 func TestPublishBinary(t *testing.T) {
-  time.Sleep(1 * time.Second)
+	time.Sleep(1 * time.Second)
 	emitter, _ := NewEmitter(&EmitterOpts{
 		Host: "localhost",
 		Port: 6379,
