@@ -12,6 +12,7 @@ import (
 )
 
 const (
+	UID          = "emitter"
 	EVENT        = 2
 	BINARY_EVENT = 5
 
@@ -37,6 +38,17 @@ type Emitter struct {
 	rooms     []string
 	flags     map[string]interface{}
 	redisPool *redis.Pool
+}
+
+func getKey(key, nsp string) string {
+	var _key string
+	if key == "" {
+		_key = fmt.Sprintf("socket.io#%s#", nsp)
+	} else {
+		_key = fmt.Sprintf("socket.io#/#%s#", key)
+	}
+
+	return _key
 }
 
 // TODO: return error too here
@@ -81,12 +93,8 @@ func initRedisConnPool(opts *EmitterOpts) *redis.Pool {
 //    Port:6379,
 // })
 func NewEmitter(opts *EmitterOpts) (*Emitter, error) {
-	var key string
-	if opts.Key == "" {
-		key = "socket.io#emitter"
-	} else {
-		key = opts.Key + "#emitter"
-	}
+	nsp := "/"
+	key := getKey(opts.Key, nsp)
 
 	emitter := &Emitter{
 		Key:       key,
@@ -215,6 +223,7 @@ func (emitter *Emitter) emit(packet map[string]interface{}) (*Emitter, error) {
 		delete(emitter.flags, "nsp")
 	}
 	var pack []interface{} = make([]interface{}, 0)
+	pack = append(pack, UID)
 	pack = append(pack, packet)
 	pack = append(pack, map[string]interface{}{
 		"rooms": emitter.rooms,
@@ -226,15 +235,10 @@ func (emitter *Emitter) emit(packet map[string]interface{}) (*Emitter, error) {
 	if error != nil {
 		return nil, error
 	}
+
 	emitter.rooms = []string{}
 	emitter.flags = make(map[string]interface{})
 
 	publish(emitter, buf)
 	return emitter, nil
-}
-
-func (emitter *Emitter) Close() {
-	if emitter.Redis != nil {
-		defer emitter.Redis.Close()
-	}
 }
