@@ -2,10 +2,11 @@ package SocketIO
 
 import (
 	"bytes"
-	"github.com/garyburd/redigo/redis"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/garyburd/redigo/redis"
 )
 
 func TestHasBinary(t *testing.T) {
@@ -65,7 +66,7 @@ func TestPublish(t *testing.T) {
 	c, _ := redis.Dial("tcp", "localhost:6379")
 	defer c.Close()
 	psc := redis.PubSubConn{Conn: c}
-	psc.Subscribe("socket.io#emitter")
+	psc.Subscribe("socket.io#/#")
 	emitter.Emit("text", "hogefuga")
 	for {
 		switch v := psc.Receive().(type) {
@@ -96,7 +97,7 @@ func TestPublishMultipleTimes(t *testing.T) {
 	defer c.Close()
 
 	psc := redis.PubSubConn{Conn: c}
-	psc.Subscribe("socket.io#emitter")
+	psc.Subscribe("socket.io#/#")
 	emitter.Emit("text", "hogefuga")
 	emitter.Emit("text", "foobar")
 	for {
@@ -129,7 +130,7 @@ func TestPublishJson(t *testing.T) {
 	c, _ := redis.Dial("tcp", "localhost:6379")
 	defer c.Close()
 	psc := redis.PubSubConn{Conn: c}
-	psc.Subscribe("socket.io#emitter")
+	psc.Subscribe("socket.io#/#")
 	emitter.Emit("jsondata", []byte(`{"name":"a","age":1,"bin":"abc"}`))
 	for {
 		switch v := psc.Receive().(type) {
@@ -159,7 +160,7 @@ func TestPublishBinary(t *testing.T) {
 	c, _ := redis.Dial("tcp", "localhost:6379")
 	defer c.Close()
 	psc := redis.PubSubConn{Conn: c}
-	psc.Subscribe("socket.io#emitter")
+	psc.Subscribe("socket.io#/#")
 	val := bytes.NewBufferString("aaabbbccc")
 	emitter.EmitBinary("bin", val.Bytes())
 	for {
@@ -186,7 +187,7 @@ func TestPublishEnd(t *testing.T) {
 	c, _ := redis.Dial("tcp", "localhost:6379")
 	defer c.Close()
 	psc := redis.PubSubConn{Conn: c}
-	psc.Subscribe("socket.io#emitter")
+	psc.Subscribe("socket.io#/#")
 	emitter.Emit("finish")
 	for {
 		switch v := psc.Receive().(type) {
