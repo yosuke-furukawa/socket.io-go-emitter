@@ -2,14 +2,21 @@ package SocketIO
 
 import (
 	"bytes"
+	"fmt"
+	"os"
+	"strconv"
+	"time"
+
 	"github.com/garyburd/redigo/redis"
 	"github.com/vmihailenco/msgpack"
-	"strconv"
 )
 
 const (
 	EVENT        = 2
 	BINARY_EVENT = 5
+
+	redisPoolMaxIdle   = 80
+	redisPoolMaxActive = 10000 // max number of connections
 )
 
 type EmitterOpts struct {
@@ -26,10 +33,45 @@ type EmitterOpts struct {
 }
 
 type Emitter struct {
-	Redis redis.Conn
-	Key   string
-	rooms []string
-	flags map[string]interface{}
+	Key       string
+	rooms     []string
+	flags     map[string]interface{}
+	redisPool *redis.Pool
+}
+
+// TODO: return error too here
+func initRedisConnPool(opts *EmitterOpts) *redis.Pool {
+	if opts.Host == "" {
+		// return err
+	}
+
+	var addr string
+	if opts.Addr != "" {
+		addr = opts.Addr
+	} else if opts.Host != "" && opts.Port > 0 {
+		addr = opts.Host + ":" + strconv.Itoa(opts.Port)
+	} else {
+		addr = "localhost:6379"
+	}
+
+	return &redis.Pool{
+		MaxIdle:   redisPoolMaxIdle,
+		MaxActive: redisPoolMaxActive,
+		Dial: func() (redis.Conn, error) {
+			c, err := redis.Dial("tcp", addr)
+			if err != nil {
+				return nil, err
+			}
+
+			// TODO: passwd check if needed
+
+			return c, nil
+		},
+		TestOnBorrow: func(c redis.Conn, t time.Time) error {
+			_, err := c.Do("PING")
+			return err
+		},
+	}
 }
 
 // Emitter constructor
@@ -39,25 +81,6 @@ type Emitter struct {
 //    Port:6379,
 // })
 func NewEmitter(opts *EmitterOpts) (*Emitter, error) {
-	var addr string
-	if opts.Addr != "" {
-		addr = opts.Addr
-	} else if opts.Host != "" && opts.Port > 0 {
-		addr = opts.Host + ":" + strconv.Itoa(opts.Port)
-	} else {
-		addr = "localhost:6379"
-	}
-	var protocol string
-	if opts.Protocol == "" {
-		protocol = "tcp"
-	} else {
-		protocol = opts.Protocol
-	}
-	conn, err := redis.Dial(protocol, addr)
-	if err != nil {
-		return nil, err
-	}
-
 	var key string
 	if opts.Key == "" {
 		key = "socket.io#emitter"
@@ -66,8 +89,8 @@ func NewEmitter(opts *EmitterOpts) (*Emitter, error) {
 	}
 
 	emitter := &Emitter{
-		Redis: conn,
-		Key:   key,
+		Key:       key,
+		redisPool: initRedisConnPool(opts),
 	}
 	return emitter, nil
 }
@@ -177,6 +200,15 @@ func HasBinary(dataSlice ...interface{}) bool {
 	return false
 }
 
+func publish(emitter *Emitter, buf *bytes.Buffer) {
+	c := emitter.redisPool.Get()
+	defer c.Close()
+	_, err := c.Do("PUBLISH", emitter.Key, buf)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: %+v", err)
+	}
+}
+
 func (emitter *Emitter) emit(packet map[string]interface{}) (*Emitter, error) {
 	if emitter.flags["nsp"] != nil {
 		packet["nsp"] = emitter.flags["nsp"]
@@ -194,9 +226,10 @@ func (emitter *Emitter) emit(packet map[string]interface{}) (*Emitter, error) {
 	if error != nil {
 		return nil, error
 	}
-	emitter.Redis.Do("PUBLISH", emitter.Key, buf)
 	emitter.rooms = []string{}
 	emitter.flags = make(map[string]interface{})
+
+	publish(emitter, buf)
 	return emitter, nil
 }
 
